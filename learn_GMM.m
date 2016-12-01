@@ -36,7 +36,7 @@ function [theta, LL] = learn_GMM(X, K, params0, options)
 % algorithm
 % =========================================================================
 %
-EPS = 1e-10;
+% EPS = 1e-10;
 if ~exist('params0', 'var') 
     params0 = struct(); 
 end
@@ -48,37 +48,48 @@ end
 options = organize_options(options, default_learn);
 
 %likelihood array
-LL = zeros(0);
-
-counter = options.max_iter; % hoe many iter
+LL = nan(1, options.max_iter);
+[D, M] = size(X);
+counter = 1; % how many iter
 
 %calculate ll and condition. notice : max(A) (with trans) will give indexs
 %and values.
-ll_curr = 0;
-ll_prev = 0;
-counter_ll = 1;
-while (~counter == 0)
-    %maximition
-    if d
+ll_curr = -inf;
+
+while (counter <= options.max_iter)
+    %expectation
     weights = calculat_weights(X, theta.mix, theta.covs, theta.means);
     
-    %exception
-    if learn.means
-        theta.mean = calculate_mean(X, weights);
+    %maximization
+    if options.learn.mix
+        theta.mix = (sum(weights) / M)';
     end
-    theta.cov = calculate_cov(X, weights, theta.mean);
     
-    %calculationg ll 
+    if options.learn.means
+        theta.means = calculate_mean(X, weights);
+    end
+    
+    if options.learn.covs
+		theta.covs = calculate_cov(X, weights, theta.means);
+    end
+    
+    if options.learn.base_GSM_cov
+		theta.cov = calculate_GSM_cov(X, weights, theta.base_GSM_cov);
+    end
+    
+    
+    %calculating ll
+    
     ll_prev = ll_curr;
     ll_curr = GMM_loglikelihood(X, theta);
-    LL = [LL ll_curr];
+    LL(counter) = ll_curr;
     %checking if previous_LL * thresh > current_LL
     if(ll_prev * options.threshold > ll_curr)
+        LL = LL(1, 1:counter);
         break
     end
-    counter = counter - 1;
-    counter_ll = counter_ll + 1;
     
+    counter = counter + 1;    
 end
 end
 
@@ -88,21 +99,26 @@ function [params0, default_learn] = get_params0(X, K, params0)
 default_learn.mix = false;
 default_learn.means = false;
 default_learn.covs = false;
-
+default_learn.base_GSM_cov = false;
 [D,M] = size(X);
 
 if ~isfield(params0, 'means')
-    default_learn.means = true;
-    params0.means = X(:,randi(M, [1,K]))';
-    params0.means = params0.means + nanstd(X(:))*randn(size(params0.means));
+    default_learn.means = false;
+    % params0.means = reshape((sum(reshape(X(:,randi(M, [1,K*K])),[D*K,K]), 2) / K), [D,K])';
+    % params0.means = params0.means + nanstd(X(:))*randn(size(params0.means));
+    params0.means = zeros(K,D);
 end
 
 if ~isfield(params0, 'covs')
     default_learn.covs = true;
     params0.covs = nan(D,D,K);
     for k = 1:K
-        params0.covs(:,:,k) = nancov(X(:,randi(M, [1,10]))');
+        params0.covs(:,:,k) = nancov(X(:,randi(M, [1,100]))');
     end
+end
+
+if ~isfield(params0, 'base_GSM_cov')
+    params0.base_GSM_cov = nancov(X');
 end
 
 if ~isfield(params0, 'mix')
@@ -113,57 +129,59 @@ end
 
 end
 
+
 function [weights] = calculat_weights(X, prob_k, cov, mu)
-[D,M] = size(X);
-[K,L] = size(prob_k);
-weights = nan(M, K); %M=number of samples, K=number of guassian
-for i=1:M % which sample
-    sum = 0;
-    for k=1:K % sigma (k=1...K) (pk(xi |zk,tethak) * prob_is_z)
-        sum = sum + (mvnpdf(transpose(X(:,i)), mu(k,:), cov(:,:,k)) * prob_k(k));
-    end
-    for j=1:K % which guassian
-        temp = mvnpdf(transpose(X(:,i)), mu(j,:), cov(:,:,j)) * prob_k(j);
-        weights(i, j) = temp / sum; 
-    end
-end
-end
+[~, N] = size(X);
+[K, ~] = size(prob_k);
+weights = zeros(N, K); %M=number of samples, K=number of guassian
  
-function [prob_k] = calculate_prob_k(N, W)
-[N, K] = size(W);
-row_sum_W = sum(W, 1); %sigma(i=1..N) wik
-prob_k = nan(K);
-for i=1:K
-    prob_k(i) = row_sum_W(i) / N;
+for k = 1:K
+	weights(:,k) = log_mvnpdf(X', mu(k,:), cov(:,:,k));
 end
+weights = bsxfun(@plus,weights,log(prob_k)');
+temp_sum = logsum(weights, 2);
+weights = exp(bsxfun(@minus,weights,temp_sum));
 end
 
 function [cov] = calculate_cov(X, weights, means)
 [N, K] = size(weights);
-[D,M] = size(X);
+[D, ~] = size(X);
+
 cov = zeros(D, D, K);
-row_sum_W = sum(weights, 1); %sigma(i=1..N) wik = Nk
-for j=1:K
-    temp_sum = 0;
-    for i=1:M
-        temp_sum = temp_sum + (X(:,i) - means(j)) * transpose((X(:,i) - means(j))) * weights(i,j);
-    end
-    cov(:,:,j) = 1/row_sum_W(j) * temp_sum;
+
+for k=1:K
+	% curr_cov = zeros(D, D);
+    cov(:,:,k) = X * (X' .* repmat(weights(:,k), [1,D]));
+	
+	% for i=1:N
+    %    curr_cov = curr_cov + X(:,i) * X(:,i)' * weights(i,k);
+    % end
+	cov(:,:,k) = curr_cov / sum(weights(:,k));
 end
 end
 
+function [cov] = calculate_GSM_cov(X, weights, base_cov)
+[~, K] = size(weights);
+[D, ~] = size(X);
+
+mix_cov_scalar = nan(K);
+for k = 1:K
+    mix_cov_scalar(k) = exp(logsum(weights(:, k) + log(diag(X' * base_cov * X))) + log(D) - logsum(weights(:, k)));
+end;
+cov = reshape(bsxfun(@times, base_cov(:), mix_cov_scalar), [size(base_cov) K]);
+end
+
 function [means] = calculate_mean(X, weights)
-% The function calculate the covariance of k guassians
-[N, K] = size(weights);
-[D, M] = size(X);
-means = nan(K, D);
-row_sum_W = sum(weights, 1); %sigma(i=1..N) wik = Nk
-for j=1:K
-    temp_sum = zeros(1,D);
-    for i=1:M
-        temp_sum = temp_sum + (transpose(X(:,i)) * weights(i,j));
-    end
-    means(j,:) = (1/row_sum_W(j)) * temp_sum;
+% The function calculate the mean of k guassians
+[~, K] = size(weights);
+[D, ~] = size(X);
+
+
+% means = X * exp(weights);
+means = nan([K, D]);
+X = log(X);
+for k = 1:K
+	means(k, :) = exp(logsum(X + repmat(weights(:, k)',[D, 1]), 2) - logsum(weights(:, k)));
 end
 end
 
@@ -175,9 +193,13 @@ if ~isfield(options, 'verbosity') options.verbosity = 'none'; end
 if ~isfield(options, 'learn') options.learn = default_learn;
 else
     if ~isfield(options.learn, 'means') options.learn.means = default_learn.means; end;
-    if ~isfield(options.learn, 'covs') options.learn.covs = default_learn.covs; end;
     if ~isfield(options.learn, 'mix') options.learn.mix = default_learn.mix; end;
+    if ~isfield(options.learn, 'covs')
+        if ~isfield(options.learn, 'base_GSM_cov')
+            options.learn.covs = default_learn.covs; 
+        else
+            options.learn.base_GSM_cov = ~default_learn.base_GSM_cov;
+        end;
+    end;
 end
 end
-
-

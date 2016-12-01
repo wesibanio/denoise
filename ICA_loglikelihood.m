@@ -16,12 +16,12 @@ function [ll] = ICA_loglikelihood(X, model)
 %
 ll = 0;
 [D, K] = size(model.mix);
-model.P = orth_basis_x;
-S = transpose(orth_basis_x) * X;
+S = model.P' * X;
+
 for si=1:D % every si
     tetha = struct();
-    tetha.means = zeros(K, 1);
-    tetha.covs = model.vars(si,:);
+    tetha.means = model.means(si,:,:);
+    tetha.covs = model.covs(si,:,:,:);
     tetha.mix = model.mix(si,:);
     ll = ll + GMM_loglikelihood(S(si,:), tetha);
 end

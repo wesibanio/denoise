@@ -11,9 +11,8 @@ function [ll] = MVN_loglikelihood(X, model)
 %           cov - A DxD covariane matrix.
 %
 [D, M] = size(X);
-[K, L] = size(theta.mix);
 ll = 0;
 for i=1:M
-    ll = ll + log(mvnpdf(transpose(X(:,i)), zeros(D), model.cov));
+    ll = ll + log(mvnpdf(X(:,i)', zeros(D), model.cov));
 end
 end

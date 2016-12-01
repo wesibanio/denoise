@@ -3,7 +3,7 @@ function N = lognormat(A, dim)
 % Arguments:
 %   A - matrix to normalize
 %   dim - dimension along which to normalize. default is 2
-%         (column)
+%         (row)
 
 if ~exist('dim','var') dim = 2; end;
 

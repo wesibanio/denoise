@@ -16,4 +16,6 @@ function [xhat] = GSM_denoise(y, gsm, noise)
 %  noise - the std of the noise in y.
 %
 
-% XXX your denoising code here
+% we should mult by transpose(A) denoise and mult by A
+xhat = GMM_denoise(y, gsm, noise);
+end

@@ -7,7 +7,7 @@ function [psnr, ll, dur] = test_denoising(test, models, noise_range,...
 %           * loglikelihood - a function R <- x
 %           * name - a string with the name of the model.
 %  noise_range - a range of noise to be added to the picture.
-%                default = [.001, .05, .1, .2].
+%                default = [.001, .05, .1, .mai2].
 %  to_plot - whether results should be plotted. default = [], i.e. don't.
 %            If a pair [width, height] is given, it's interpreted as a
 %            frame size to be plotted.
@@ -72,7 +72,7 @@ S = length(noise_range);
 
 psnr = nan(I,M,S);
 dur = nan(I,M,S);
-ll = nan(M,1);
+ll = zeros(M,1);
 
 if ~isempty(to_plot)
     pR = M;
@@ -89,10 +89,10 @@ end
 
 tst_ps = sample_patches(test, psize, 1e5);
 for i = 1:I %images
-    x = test{i};
+    x = double(test{i});
     for si = 1:S %noise
         noise = noise_range(si);
-        y = x + noise * randn(size(x));
+        y = double(x) + double(noise) * randn(size(x));
         for mi = 1:M % models
             model = models{mi};
             fprintf('denoising image %i with %s (noise %2f).\n',...

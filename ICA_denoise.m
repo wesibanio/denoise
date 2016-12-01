@@ -16,15 +16,15 @@ function [xhat] = ICA_denoise(y, ica, noise)
 %  noise - the std of the noise in y.
 %
 [D, M] = size(y);
-PTy = transpose(ica.P) * y; % s + noise2
+PTy = ica.P' * y; % s + noise2
 shat = zeros(D, M);
-%for sample=1:M
+
 for cord=1:D
     gmm = struct();
-    gmm.vars = ica.vars(cord,:);
+    gmm.covs = ica.covs(cord,:,:,:);
     gmm.mix = ica.mix(cord,:);
-    % notice: no means sent
-    shat(cord, :) = denoise_GMM(y(cod,:), gmm, noise);
+    gmm.means = ica.means(cord,:,:);
+    shat(cord, :) = GMM_denoise(y(cord,:), gmm, noise);
 end
 % mult by PT
 xhat = ica.P * y;

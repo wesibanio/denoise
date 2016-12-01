@@ -1,4 +1,4 @@
-function [xhat] = GMM_denoise(y, gmm, noise)
+function [curr_xhat] = GMM_denoise(y, gmm, noise)
 % Denoises every column in y, assuming a gaussian mixture model and white
 % noise.
 % 
@@ -20,26 +20,49 @@ function [xhat] = GMM_denoise(y, gmm, noise)
 % This is an optional file - use if if you want to implement all denoising
 % code in one place...
 % =========================================================================
+
 [D, M] = size(y);
 xhat = zeros(D, M);
-for sample=1:M
-    vec_prob_sample = postrioryProb(noise, gmm, y(:,sample));
+[K, ~] = size(gmm.mix);
+
+weights = postrioryProb(noise, gmm, y);   
+for k=1:K
+    curr_xhat = (inv(gmm.covs(:, :, k)) + (eye(D) / (noise^2))) \ ((noise^-2)* y);
+	curr_xhat = bsxfun(@times, curr_xhat, weights(:, k)');
+	
+    % curr_xhat = curr_xhat .* repmat(weights(:, k)', [D,1]);
+    xhat = xhat + curr_xhat;
+end
+% xhat = bsxfun(@rdivide, xhat, sum(weights, 2));
+
+%{
+for sample=1:M    
     xhat_temp = zeros(D, 1);
     for guassian=1:K
-        xhat_temp = xhat_temp + vec_prob_sample(guassian) * inv(inv(mvn.cov(:, :, guassian) + (1/(noise*noise))*(eye(D))) * (1/(noise*noise)* y(:,sample));
+        xhat_temp = xhat_temp + vec_prob_sample(guassian) * inv(inv(gmm.covs(:, :, guassian)) + (1/(noise*noise)*(eye(D)))) * (1/(noise*noise)* y(:,sample));
     end
     xhat(:,sample) = xhat_temp;
 end
+%}
+
 end
 
-function [prob] = postrioryProb(noise, gmm, y)
-% the function calculate p(k|y) for every k
+function [yGivenK] = postrioryProb(noise, gmm, y)
+% the function calculate p(Y|k) for every k
 [K, ~] = size(gmm.mix);
-[D, ~] = size(gmm.covs);
-yGivenK = zeros(K);
+% [D, ~, ~] = size(gmm.covs);
+[D, N] = size(y);
+
+yGivenK = zeros(N, K);
+
 for i = 1:K
-    yGivenK(i) = mvnpdf(y, gmm.means(i,:), gmm.covs(:,:,i) + eye(D)*noise);
+    yGivenK(:, i) = log_mvnpdf(y', gmm.means(i,:), gmm.covs(:,:,i) + eye(D)*noise);
 end
-yGivenKSum = sum(yGivenK);
-prob = (yGivenK.*gmm.mix) / yGivenKSum ;
+
+yGivenK = bsxfun(@plus,yGivenK,log(gmm.mix)');
+temp_sum = logsum(yGivenK, 2);
+yGivenK = exp(bsxfun(@minus,yGivenK,temp_sum));
+
+% yGivenKSum = sum(yGivenK);
+% prob = (yGivenK.*gmm.mix) / yGivenKSum ;
 end

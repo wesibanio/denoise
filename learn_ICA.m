@@ -21,24 +21,28 @@ function model = learn_ICA(X, K, options)
 %
 % notice : taking PT
 model = struct();
-covariance_data = cov(X);
-eig_cov_x = eig(covariance_data);
-orth_basis_x = orth(eig_cov_x); % P !
-model.P = orth_basis_x;
+covariance_data = cov(X');
+[V, ~] = eig(covariance_data);
+model.P = orth(V); % P !
 
-S = transpose(orth_basis_x) * X; % our s !
+S = model.P' * X; % our s !
 
 [D, M] = size(S);
 
-char_mix_of_guassian = zeros(D, 2);
-
+model.covs = zeros(D, 1, 1, K);
+model.mix = zeros(D, K);
+model.means = zeros(D, K, 1);
 params0 = struct();
 params0.means = zeros(K,1);
 
 for i=1:D % for every si in xi
-    char_mix_of_guassian(i,:) = learn_GMM(S(i,:), K, params0);
+    [modelNew, ll] = learn_GMM(S(i,:), K, params0);
+    model.covs(i,:,:,:) = modelNew.covs;
+    model.mix(i,:) = modelNew.mix;
+	model.means(i,:,:) = modelNew.means;
 end
-
+%{
+char_mix_of_guassian = struct();
 model.var = zeros(D, K);
 model.mix = zeros(D, K);
 model.means = zeros(D, K);
@@ -46,10 +50,7 @@ for i=1:D
     model.var(i,:) = char_mix_of_guassian(i,1).covs;
     model.mix(i,:) = char_mix_of_guassian(i,1).mix;
 end
+%}
+
 end
-
-
-
-    
-
 

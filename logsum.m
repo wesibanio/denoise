@@ -5,7 +5,7 @@ function S = logsum(X, dim)
 %   Arguments:
 %       X - a matrix in log space.
 %       dim - the dimension along which summation is performed,
-%             defaults to 1, i.e. rows.
+%             defaults to 1, i.e. colmn.
 if ~exist('dim','var') || isempty(dim) dim = 1; end
 c = size(X, dim); rep_dims = ones(1,length(size(X))); rep_dims(dim) = c;
 m = max(X, [], dim);

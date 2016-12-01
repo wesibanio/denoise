@@ -17,3 +17,10 @@ function [model] = learn_GSM(X, K, options)
 %                  matrix according to scaling parameters.
 %           means - K 0-means.
 %
+[D, M] = size(X);
+options = struct();
+param = struct();
+options.base_GSM_cov = true;
+param.means = zeros(K, D);
+[model, ll] = learn_GMM(X, K, param, options);
+end
