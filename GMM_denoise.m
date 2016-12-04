@@ -1,4 +1,4 @@
-function [curr_xhat] = GMM_denoise(y, gmm, noise)
+function [xhat] = GMM_denoise(y, gmm, noise)
 % Denoises every column in y, assuming a gaussian mixture model and white
 % noise.
 % 
@@ -20,49 +20,31 @@ function [curr_xhat] = GMM_denoise(y, gmm, noise)
 % This is an optional file - use if if you want to implement all denoising
 % code in one place...
 % =========================================================================
-
 [D, M] = size(y);
 xhat = zeros(D, M);
-[K, ~] = size(gmm.mix);
-
-weights = postrioryProb(noise, gmm, y);   
-for k=1:K
-    curr_xhat = (inv(gmm.covs(:, :, k)) + (eye(D) / (noise^2))) \ ((noise^-2)* y);
-	curr_xhat = bsxfun(@times, curr_xhat, weights(:, k)');
-	
-    % curr_xhat = curr_xhat .* repmat(weights(:, k)', [D,1]);
-    xhat = xhat + curr_xhat;
+[K, ~] = size(gmm.mix)
+[L, ~] = size(gmm.means)
+if L ~= K %noticeeeeeeee
+    gmm.means = gmm.means';
 end
-% xhat = bsxfun(@rdivide, xhat, sum(weights, 2));
-
-%{
-for sample=1:M    
+for sample=1:M
+    vec_prob_sample = postrioryProb(noise, gmm, y(:,sample));
     xhat_temp = zeros(D, 1);
     for guassian=1:K
         xhat_temp = xhat_temp + vec_prob_sample(guassian) * inv(inv(gmm.covs(:, :, guassian)) + (1/(noise*noise)*(eye(D)))) * (1/(noise*noise)* y(:,sample));
     end
     xhat(:,sample) = xhat_temp;
 end
-%}
-
 end
 
-function [yGivenK] = postrioryProb(noise, gmm, y)
-% the function calculate p(Y|k) for every k
+function [prob] = postrioryProb(noise, gmm, y)
+% the function calculate p(k|y) for every k
 [K, ~] = size(gmm.mix);
-% [D, ~, ~] = size(gmm.covs);
-[D, N] = size(y);
-
-yGivenK = zeros(N, K);
-
+[D, ~] = size(gmm.covs);
+yGivenK = zeros(K,1);
 for i = 1:K
-    yGivenK(:, i) = log_mvnpdf(y', gmm.means(i,:), gmm.covs(:,:,i) + eye(D)*noise);
+    yGivenK(i) = mvnpdf(y', gmm.means(i,:), gmm.covs(:,:,i) + eye(D)*noise);
 end
-
-yGivenK = bsxfun(@plus,yGivenK,log(gmm.mix)');
-temp_sum = logsum(yGivenK, 2);
-yGivenK = exp(bsxfun(@minus,yGivenK,temp_sum));
-
-% yGivenKSum = sum(yGivenK);
-% prob = (yGivenK.*gmm.mix) / yGivenKSum ;
+yGivenKSum = sum(yGivenK);
+prob = (yGivenK.*gmm.mix) / yGivenKSum ;
 end

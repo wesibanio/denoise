@@ -54,7 +54,7 @@ counter = 1; % how many iter
 
 %calculate ll and condition. notice : max(A) (with trans) will give indexs
 %and values.
-ll_curr = -inf;
+ll_curr = 0;
 
 while (counter <= options.max_iter)
     %expectation
@@ -82,9 +82,9 @@ while (counter <= options.max_iter)
     
     ll_prev = ll_curr;
     ll_curr = GMM_loglikelihood(X, theta);
-    LL(counter) = ll_curr;
+    LL(1, counter) = ll_curr;
     %checking if previous_LL * thresh > current_LL
-    if(ll_prev * options.threshold > ll_curr)
+    if(ll_prev - options.threshold > ll_curr)
         LL = LL(1, 1:counter);
         break
     end
@@ -103,10 +103,10 @@ default_learn.base_GSM_cov = false;
 [D,M] = size(X);
 
 if ~isfield(params0, 'means')
-    default_learn.means = false;
-    % params0.means = reshape((sum(reshape(X(:,randi(M, [1,K*K])),[D*K,K]), 2) / K), [D,K])';
-    % params0.means = params0.means + nanstd(X(:))*randn(size(params0.means));
-    params0.means = zeros(K,D);
+    default_learn.means = true;
+    % params0.means = X(:,randi(M, [1,K]))';
+    params0.means = reshape((sum(reshape(X(:,randi(M, [1,K*K])),[D*K,K]), 2) / K), [D,K])';
+    params0.means = params0.means + nanstd(X(:))*randn(size(params0.means));
 end
 
 if ~isfield(params0, 'covs')
@@ -150,12 +150,10 @@ function [cov] = calculate_cov(X, weights, means)
 cov = zeros(D, D, K);
 
 for k=1:K
-	% curr_cov = zeros(D, D);
-    cov(:,:,k) = X * (X' .* repmat(weights(:,k), [1,D]));
-	
-	% for i=1:N
-    %    curr_cov = curr_cov + X(:,i) * X(:,i)' * weights(i,k);
-    % end
+	curr_cov = zeros(D, D);
+    for i=1:N
+        curr_cov = curr_cov + X(:,i) * X(:,i)' * weights(i,k);
+    end
 	cov(:,:,k) = curr_cov / sum(weights(:,k));
 end
 end

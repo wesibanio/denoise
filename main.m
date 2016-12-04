@@ -8,22 +8,12 @@ X = transpose([mvnrnd(MU1,SIGMA1,10);mvnrnd(MU2,SIGMA2,10)]);
 learn_MVN(X);
 %}
 function main()
-X = load('../ex1YardenFix/ims.mat');
-train_set = sample_patches(X.ims.train);
-
-%{
-mvn_model = learn_ICA(train_set, 2);
-mvn_model.name = 'ICA';
-mvn_model.loglikelihood = @(x)ICA_loglikelihood(x,mvn_model);
-mvn_model.denoise = @(y, noise)ICA_denoise(y,mvn_model,noise);
-%}
-
-mvn_model = learn_GMM(train_set, 2);
-mvn_model.name = 'GMM';
-mvn_model.loglikelihood = @(x)GMM_loglikelihood(x,mvn_model);
-mvn_model.denoise = @(y, noise)GMM_denoise(y,mvn_model,noise);
-
-
-[psnr, ll, dur] = test_denoising(X.ims.test,{mvn_model});
+X = load('ims.mat');
+train_set = sample_patches(standardize_ims(X.ims.train));
+mvn_model = learn_GSM(train_set, 2);
+mvn_model.name = 'GSM';
+mvn_model.loglikelihood = @(x)GSM_loglikelihood(x,mvn_model);
+mvn_model.denoise = @(y, noise)GSM_denoise(y,mvn_model,noise);
+[psnr, ll] = test_denoising(X.ims.test,{mvn_model});
 
 end
